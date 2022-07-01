@@ -1,22 +1,76 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Atmel Studio Solution File, Format Version 11.00
-VisualStudioVersion = 14.0.23107.0
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{18226A42-8477-4023-8AD2-40C49DA407C9}") = "LED_BLINK_ASM0", "LED_BLINK_ASM0\LED_BLINK_ASM0.asmproj", "{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|AVR = Debug|AVR
-		Release|AVR = Release|AVR
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}.Debug|AVR.ActiveCfg = Debug|AVR
-		{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}.Debug|AVR.Build.0 = Debug|AVR
-		{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}.Release|AVR.ActiveCfg = Release|AVR
-		{59B1D629-9DCC-43ED-A0FD-8AB0E4D622AB}.Release|AVR.Build.0 = Release|AVR
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-EndGlobal
+;
+; LED_BLINK_ASM0.asm
+.org 0x0000
+rjmp reset
+
+.org 0x0001; ROM location of external interrupt Int0
+rjmp int0_ISR
+
+.org 0x0100; Main program
+
+reset:
+	  ;Loading stack pointer address
+      LDI R16,0x70
+	  OUT SPL,R16
+	  LDI R16,0x00
+	  OUT SPH,R16
+
+	  LDI R16,0x01;Interface port B pin0 to be output
+	  OUT DDRB,R16;so to view LED blinking
+
+	  LDI R16,0x00;Making port D as input
+	  OUT DDRD,R16
+	  
+	  IN R16,MCUCR;Set MCUCR register to enable low level interrupt
+	  ORI R16,0x08
+	  OUT MCUCR,R16
+
+	  IN R16,GICR;Set GICR register to enable interrupt 0
+	  ORI R16,0x40
+	  OUT GICR,R16
+
+	  LDI R16,0x00; Clearing port B
+	  OUT PORTB,R16
+
+	  SEI; Setting interrupt enable to 1
+ind_loop:rjmp ind_loop
+
+int0_ISR:IN R16,SREG
+		 PUSH R16
+
+		 LDI R16,0x0A
+		 MOV R0,R16; Loading 10 value and counting it in R0
+		 ;Modify below loops to make LED blink for 1 sec
+	c1:	 LDI R16,0x01; LED on
+		 OUT PORTB,R16
+
+		 LDI R16,0x08
+	a1:	 LDI R17,0x7D
+	a2:	 LDI R18,0xFA
+	a3:	 DEC R18
+		 NOP; wasting clock cycle for delay
+		 BRNE a3;Branch if Z flag = 0 (R18 not equals 0)
+		 DEC R17
+		 BRNE a2;Branch if Z flag = 0 (R17 not equals 0)
+		 DEC R16
+		 BRNE a1;Branch if Z flag = 0 (R16 not equals 0)
+
+		 LDI R16,0x00; LED off
+		 OUT PORTB,R16
+		 
+		 LDI R16,0x08
+	b1:	 LDI R17,0x7D
+	b2:	 LDI R18,0xFA
+	b3:	 DEC R18
+		 NOP; wasting clock cycle for delay
+		 BRNE b3;Branch if Z flag = 0 (R18 not equals 0)
+		 DEC R17
+		 BRNE b2;Branch if Z flag = 0 (R17 not equals 0)
+		 DEC R16
+		 BRNE b1;Branch if Z flag = 0 (R16 not equals 0)
+
+		 DEC R0
+		 BRNE c1;Branch if Z flag = 0 (R0 not equals 0)
+		 POP R16
+		 OUT SREG, R16
+		 RETI
